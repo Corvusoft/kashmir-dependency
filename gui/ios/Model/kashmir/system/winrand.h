@@ -18,8 +18,8 @@
 #ifndef KL_WINRAND_H
 #define KL_WINRAND_H
 
-#include "randomstream.h"
-#include "unique.h"
+#include "../randomstream.h"
+#include "../unique.h"
 
 #include <stdexcept>
 
@@ -30,7 +30,7 @@
 namespace kashmir {
 namespace system {
 
-class WinRand : public user::randomstream<WinRand>, unique<WinRand>
+class WinRand : public randomstream<WinRand>, unique<WinRand>
 {
     HMODULE advapi32;
     BOOLEAN (APIENTRY *RtlGenRandom)(void*, ULONG);

@@ -17,8 +17,8 @@
 #ifndef KL_WINRANDOM_H 
 #define KL_WINRANDOM_H 
 
-#include "randomstream.h"
-#include "unique.h"
+#include "../randomstream.h"
+#include "../unique.h"
 
 #include <stdexcept>
 
@@ -30,7 +30,7 @@
 namespace kashmir {
 namespace system {
 
-class WinRandom : public user::randomstream<WinRandom>, unique<WinRandom>
+class WinRandom : public randomstream<WinRandom>, unique<WinRandom>
 {
     HCRYPTPROV hProv;
 
@@ -47,7 +47,7 @@ public:
         CryptReleaseContext(hProv, 0);
     }
 
-    void read(char* buffer, std::size_t count)
+    void read(char *buffer, std::size_t count)
     {
         if (!CryptGenRandom(hProv, count, buffer))
             throw std::runtime_error("system failed to generate random data.");

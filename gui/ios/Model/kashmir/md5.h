@@ -10,8 +10,7 @@
 #ifndef KL_MD5_H
 #define KL_MD5_H 
 
-#include "array.h"
-
+#include <array>
 #include <istream>
 #include <ostream>
 #include <sstream>
@@ -43,7 +42,7 @@ const size_type size = 16, string_size = 32;
 
 class md5_t
 {
-    typedef array<value_type, size> data_type;
+    typedef std::array<value_type, size> data_type;
     data_type data;
 
 public:

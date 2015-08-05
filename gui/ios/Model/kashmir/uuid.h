@@ -1,17 +1,16 @@
-// md5.h -- hash algorithm data product described in IETF RFC 1321
+// uuid.h -- universally unique ID - as defined by ISO/IEC 9834-8:2005
 
-// Copyright (C) 2010 Kenneth Laskoski
+// Copyright (C) 2008 Kenneth Laskoski
 
-/** @file md5.h
-    @brief hash algorithm data product described in IETF RFC 1321
-    @author Copyright (C) 2010 Kenneth Laskoski
+/** @file uuid.h
+    @brief universally unique ID - as defined by ISO/IEC 9834-8:2005
+    @author Copyright (C) 2008 Kenneth Laskoski
 */
 
-#ifndef KL_MD5_H
-#define KL_MD5_H 
+#ifndef KL_UUID_H
+#define KL_UUID_H
 
-#include "array.h"
-
+#include <array>
 #include <istream>
 #include <ostream>
 #include <sstream>
@@ -21,17 +20,17 @@
 #include "iostate.h"
 
 namespace kashmir {
-namespace md5 {
+namespace uuid {
 
-/** @class md5_t
-    @brief This class implements the data product of the hash algorithm described in
-    
-    - IETF RFC 1321 - available at http://tools.ietf.org/html/rfc1321
+/** @class uuid_t
+    @brief This class is a C++ concrete type representing the UUID defined in
+    - ISO/IEC 9834-8:2005 | ITU-T Rec. X.667 - available at http://www.itu.int/ITU-T/studygroups/com17/oid.html
+    - IETF RFC 4122 - available at http://tools.ietf.org/html/rfc4122
 
-    This documents the code below.
+    These technically equivalent standards document the code below.
 */
 
-// an MD5 is a string of 16 octets (128 bits)
+// an UUID is a string of 16 octets (128 bits)
 // we use an unpacked representation, value_type may be larger than 8 bits,
 // in which case every input operation must assert data[i] < 256 for i < 16
 // note that even char may be more than 8 bits in some particular platform
@@ -39,21 +38,21 @@ namespace md5 {
 typedef unsigned char value_type;
 typedef std::size_t size_type;
 
-const size_type size = 16, string_size = 32;
+const size_type size = 16, string_size = 36;
 
-class md5_t
+class uuid_t
 {
-    typedef array<value_type, size> data_type;
+    typedef std::array<value_type, size> data_type;
     data_type data;
 
 public:
     // we keep data uninitialized to stress concreteness
-    md5_t() {}
-    ~md5_t() {}
+    uuid_t() {}
+    ~uuid_t() {}
 
     // trivial copy and assignment
-    md5_t(const md5_t& rhs) : data(rhs.data) {}
-    md5_t& operator=(const md5_t& rhs)
+    uuid_t(const uuid_t& rhs) : data(rhs.data) {}
+    uuid_t& operator=(const uuid_t& rhs)
     {
         data = rhs.data;
         return *this;
@@ -61,7 +60,7 @@ public:
 
     // OK, now we bow to convenience
     // initialization from C string
-    explicit md5_t(const char* string)
+    explicit uuid_t(const char* string)
     {
         std::stringstream stream(string);
         get(stream);
@@ -77,16 +76,20 @@ public:
     }
 
     // safe bool idiom
-    typedef data_type md5_t::*bool_type; 
+    typedef data_type uuid_t::*bool_type; 
     operator bool_type() const
     {
-        return is_nil() ? 0 : &md5_t::data;
+        return is_nil() ? 0 : &uuid_t::data;
     }
 
-    // only equality makes sense here
-    bool operator==(const md5_t& rhs) const
+    // comparison operators define a total order
+    bool operator==(const uuid_t& rhs) const
     {
         return data == rhs.data;
+    }
+    bool operator<(const uuid_t& rhs) const
+    {
+        return data < rhs.data;
     }
 
     // stream operators
@@ -97,11 +100,14 @@ public:
     std::basic_istream<char_t, char_traits>& get(std::basic_istream<char_t, char_traits>& is);
 };
 
-// only equality makes sense here
-inline bool operator!=(const md5_t& lhs, const md5_t& rhs) { return !(lhs == rhs); }
+// comparison operators define a total order
+inline bool operator>(const uuid_t& lhs, const uuid_t& rhs) { return (rhs < lhs); }
+inline bool operator<=(const uuid_t& lhs, const uuid_t& rhs) { return !(rhs < lhs); }
+inline bool operator>=(const uuid_t& lhs, const uuid_t& rhs) { return !(lhs < rhs); }
+inline bool operator!=(const uuid_t& lhs, const uuid_t& rhs) { return !(lhs == rhs); }
 
 template<class char_t, class char_traits>
-std::basic_ostream<char_t, char_traits>& md5_t::put(std::basic_ostream<char_t, char_traits>& os) const
+std::basic_ostream<char_t, char_traits>& uuid_t::put(std::basic_ostream<char_t, char_traits>& os) const
 {
     if (!os.good())
         return os;
@@ -127,6 +133,8 @@ std::basic_ostream<char_t, char_traits>& md5_t::put(std::basic_ostream<char_t, c
         {
             os.width(2);
             os << static_cast<unsigned>(data[i]);
+            if (i == 3 || i == 5 || i == 7 || i == 9)
+                os << os.widen('-');
         }
 
         // left padding
@@ -139,7 +147,7 @@ std::basic_ostream<char_t, char_traits>& md5_t::put(std::basic_ostream<char_t, c
 }
 
 template<class char_t, class char_traits>
-std::basic_istream<char_t, char_traits>& md5_t::get(std::basic_istream<char_t, char_traits>& is)
+std::basic_istream<char_t, char_traits>& uuid_t::get(std::basic_istream<char_t, char_traits>& is)
 {
     if (!is.good())
         return is;
@@ -184,30 +192,40 @@ std::basic_istream<char_t, char_traits>& md5_t::get(std::basic_istream<char_t, c
 
             data[i] <<= 4;
             data[i] |= static_cast<value_type>(std::distance(hexdigits, f));
+
+            if (i == 3 || i == 5 || i == 7 || i == 9)
+            {
+                is >> c;
+                if (c != is.widen('-'))
+                {
+                    is.setstate(std::ios_base::failbit);
+                    break;
+                }
+            }
         }
 
         if (!is)
-            throw std::runtime_error("failed to extract valid md5 from stream.");
+            throw std::runtime_error("failed to extract valid uuid from stream.");
     }
 
     return is;
 }
 
 template<class char_t, class char_traits>
-inline std::basic_ostream<char_t, char_traits>& operator<<(std::basic_ostream<char_t, char_traits>& os, const md5_t& md5)
+inline std::basic_ostream<char_t, char_traits>& operator<<(std::basic_ostream<char_t, char_traits>& os, const uuid_t& uuid)
 {
-    return md5.put(os);
+    return uuid.put(os);
 }
 
 template<class char_t, class char_traits>
-inline std::basic_istream<char_t, char_traits>& operator>>(std::basic_istream<char_t, char_traits>& is, md5_t& md5)
+inline std::basic_istream<char_t, char_traits>& operator>>(std::basic_istream<char_t, char_traits>& is, uuid_t& uuid)
 {
-    return md5.get(is);
+    return uuid.get(is);
 }
 
-} // namespace kashmir::md5
+} // namespace kashmir::uuid
 
-using md5::md5_t;
+using uuid::uuid_t;
 
 } // namespace kashmir
 

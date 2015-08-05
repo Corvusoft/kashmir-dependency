@@ -14,8 +14,8 @@
 #ifndef KL_DEVRAND_H 
 #define KL_DEVRAND_H 
 
-#include "randomstream.h"
-#include "unique.h"
+#include "../randomstream.h"
+#include "../unique.h"
 
 #include <fstream>
 #include <stdexcept>
@@ -23,7 +23,7 @@
 namespace kashmir {
 namespace system {
 
-class DevRand : public user::randomstream<DevRand>, unique<DevRand>
+class DevRand : public randomstream<DevRand>, unique<DevRand>
 {
     std::ifstream file;
 

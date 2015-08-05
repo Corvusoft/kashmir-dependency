@@ -5,26 +5,18 @@
 /** @file uuid.h
     @brief universally unique ID - as defined by ISO/IEC 9834-8:2005
     @author Copyright (C) 2008 Kenneth Laskoski
-
-    Use, modification, and distribution are subject to the
-    Boost Software License, Version 1.0. See accompanying file
-    LICENSE_1_0.txt or <http://www.boost.org/LICENSE_1_0.txt>.
 */
 
 #ifndef KL_UUID_H
-#define KL_UUID_H 
+#define KL_UUID_H
 
 #include "array.h"
 
 #include <istream>
 #include <ostream>
 #include <sstream>
-#include "randomstream.h"
-
-#include <cstddef>
 
 #include <stdexcept>
-#include <algorithm>
 
 #include "iostate.h"
 
@@ -32,41 +24,42 @@ namespace kashmir {
 namespace uuid {
 
 /** @class uuid_t
-    @brief This class provides a C++ binding to the UUID type defined in
+    @brief This class is a C++ concrete type representing the UUID defined in
     - ISO/IEC 9834-8:2005 | ITU-T Rec. X.667 - available at http://www.itu.int/ITU-T/studygroups/com17/oid.html
     - IETF RFC 4122 - available at http://tools.ietf.org/html/rfc4122
 
     These technically equivalent standards document the code below.
 */
 
+// an UUID is a string of 16 octets (128 bits)
+// we use an unpacked representation, value_type may be larger than 8 bits,
+// in which case every input operation must assert data[i] < 256 for i < 16
+// note that even char may be more than 8 bits in some particular platform
+
+typedef unsigned char value_type;
+typedef std::size_t size_type;
+
+const size_type size = 16, string_size = 36;
+
 class uuid_t
 {
-    // an UUID is a string of 16 octets (128 bits)
-    // we use an unpacked representation, value_type may be larger than 8 bits,
-    // in which case every input operation must assert data[i] < 256 for i < 16
-    // note even char may be more than 8 bits in some particular platform
-    typedef unsigned char value_type;
-    typedef std::size_t size_type;
-
-    enum { size = 16, string_size = 36 };
-
     typedef array<value_type, size> data_type;
     data_type data;
 
 public:
-    // uninitialized memory
+    // we keep data uninitialized to stress concreteness
     uuid_t() {}
     ~uuid_t() {}
 
-    // copy and assignment
+    // trivial copy and assignment
     uuid_t(const uuid_t& rhs) : data(rhs.data) {}
-
     uuid_t& operator=(const uuid_t& rhs)
     {
         data = rhs.data;
         return *this;
     }
 
+    // OK, now we bow to convenience
     // initialization from C string
     explicit uuid_t(const char* string)
     {
@@ -85,14 +78,20 @@ public:
 
     // safe bool idiom
     typedef data_type uuid_t::*bool_type; 
-
     operator bool_type() const
     {
         return is_nil() ? 0 : &uuid_t::data;
     }
 
-    friend bool operator==(const uuid_t& lhs, const uuid_t& rhs);
-    friend bool operator<(const uuid_t& lhs, const uuid_t& rhs);
+    // comparison operators define a total order
+    bool operator==(const uuid_t& rhs) const
+    {
+        return data == rhs.data;
+    }
+    bool operator<(const uuid_t& rhs) const
+    {
+        return data < rhs.data;
+    }
 
     // stream operators
     template<class char_t, class char_traits>
@@ -100,23 +99,9 @@ public:
 
     template<class char_t, class char_traits>
     std::basic_istream<char_t, char_traits>& get(std::basic_istream<char_t, char_traits>& is);
-
-    // version 4 uuid extraction from a random stream
-    template<class user_impl>
-    user::randomstream<user_impl>& get(user::randomstream<user_impl>& is);
 };
 
 // comparison operators define a total order
-inline bool operator==(const uuid_t& lhs, const uuid_t& rhs)
-{
-    return lhs.data == rhs.data;
-}
-
-inline bool operator<(const uuid_t& lhs, const uuid_t& rhs)
-{
-    return lhs.data < rhs.data;
-}
-
 inline bool operator>(const uuid_t& lhs, const uuid_t& rhs) { return (rhs < lhs); }
 inline bool operator<=(const uuid_t& lhs, const uuid_t& rhs) { return !(rhs < lhs); }
 inline bool operator>=(const uuid_t& lhs, const uuid_t& rhs) { return !(lhs < rhs); }
@@ -145,7 +130,7 @@ std::basic_ostream<char_t, char_traits>& uuid_t::put(std::basic_ostream<char_t, 
         os << std::hex;
         os.fill(os.widen('0'));
 
-        for (size_t i = 0; i < 16; ++i)
+        for (size_t i = 0; i < size; ++i)
         {
             os.width(2);
             os << static_cast<unsigned>(data[i]);
@@ -227,37 +212,6 @@ std::basic_istream<char_t, char_traits>& uuid_t::get(std::basic_istream<char_t, 
     return is;
 }
 
-template<class user_impl>
-user::randomstream<user_impl>& uuid_t::get(user::randomstream<user_impl>& is)
-{
-    // get random bytes
-
-    // RAE: we take advantage of our representation
-    is.read(reinterpret_cast<char*>(this), size);
-
-    // a more general solution would be
-//    input_iterator<is> it;
-//    std::copy(it, it+size, data.begin());
-
-    // if uuid_t::value_type is larger than 8 bits, we need
-    // to maintain the invariant data[i] < 256 for i < 16
-    // Example (this may impact randomness):
-//    for (size_t i = 0; i < size; ++i)
-//        data[i] &= 0xff;
-
-    // set variant
-    // should be 0b10xxxxxx
-    data[8] &= 0xbf;   // 0b10111111
-    data[8] |= 0x80;   // 0b10000000
-
-    // set version
-    // should be 0b0100xxxx
-    data[6] &= 0x4f;   // 0b01001111
-    data[6] |= 0x40;   // 0b01000000
-
-    return is;
-}
-
 template<class char_t, class char_traits>
 inline std::basic_ostream<char_t, char_traits>& operator<<(std::basic_ostream<char_t, char_traits>& os, const uuid_t& uuid)
 {
@@ -266,12 +220,6 @@ inline std::basic_ostream<char_t, char_traits>& operator<<(std::basic_ostream<ch
 
 template<class char_t, class char_traits>
 inline std::basic_istream<char_t, char_traits>& operator>>(std::basic_istream<char_t, char_traits>& is, uuid_t& uuid)
-{
-    return uuid.get(is);
-}
-
-template<class user_impl>
-inline user::randomstream<user_impl>& operator>>(user::randomstream<user_impl>& is, uuid_t& uuid)
 {
     return uuid.get(is);
 }
